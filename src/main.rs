@@ -1,7 +1,7 @@
-use actix_web::{App, HttpServer};
+use actix_web::{App, HttpServer, web};
+use actix_files::Files;
 use dotenv::dotenv;
 use std::env;
-use actix_files::Files;
 
 mod config;
 mod db;
@@ -17,27 +17,50 @@ async fn main() -> std::io::Result<()> {
 
     dotenv().ok();
 
+    // =========================
+    // CONEXIÓN A BASE DE DATOS
+    // =========================
     let database_url = env::var("DATABASE_URL")
         .expect("DATABASE_URL no definida");
 
     let pool: sqlx::PgPool =
         db::connection::init_pool(&database_url).await;
 
-    // 👇 IMPORTANTE PARA RENDER
+    // =========================
+    // PUERTO (IMPORTANTE EN RENDER)
+    // =========================
     let port = env::var("PORT")
         .unwrap_or_else(|_| "8080".to_string());
 
-    println!("Servidor corriendo en puerto {}", port);
+    println!("🚀 Servidor corriendo en puerto {}", port);
 
     HttpServer::new(move || {
         App::new()
-            .app_data(actix_web::web::Data::new(pool.clone()))
-            .wrap(JwtMiddleware)
-            .service(Files::new("/static", "./static").show_files_listing())
+            .app_data(web::Data::new(pool.clone()))
+
+            // =========================
+            // ARCHIVOS ESTÁTICOS (HTML, JS, CSS)
+            // =========================
+            .service(
+                Files::new("/", "./static")
+                    .index_file("login.html") // 👈 abre login por defecto
+            )
+
+            // =========================
+            // LOGIN (SIN JWT)
+            // =========================
             .configure(modules::auth::init)
-            .configure(modules::seguridad::init)
+
+            // =========================
+            // API PROTEGIDA CON JWT
+            // =========================
+            .service(
+                web::scope("/api")
+                    .wrap(JwtMiddleware) // 👈 SOLO protege /api/*
+                    .configure(modules::seguridad::init)
+            )
     })
-    .bind(format!("0.0.0.0:{}", port))?  // 👈 CAMBIO CLAVE
+    .bind(format!("0.0.0.0:{}", port))? // 👈 CLAVE para Render
     .run()
     .await
 }

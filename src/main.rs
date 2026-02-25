@@ -41,10 +41,12 @@ async fn main() -> std::io::Result<()> {
             // =========================
             // ARCHIVOS ESTÁTICOS (HTML, JS, CSS)
             // =========================
-            .service(
-                Files::new("/", "./static")
-                    .index_file("login.html") // 👈 abre login por defecto
-            )
+          .service(
+    Files::new("/static", "./static")
+)
+.route("/", web::get().to(|| async {
+    actix_files::NamedFile::open("./static/login.html")
+}))
 
             // =========================
             // LOGIN (SIN JWT)

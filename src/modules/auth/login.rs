@@ -66,7 +66,8 @@ async fn login(
         return HttpResponse::Unauthorized()
             .body("Usuario inactivo");
     }
-
+println!("Password enviada: {}", form.pwd);
+println!("Password BD: {}", user.pwd);
     // Verificar contraseña
     let password_valida = verify(&form.pwd, &user.pwd)
         .unwrap_or(false);

@@ -3,23 +3,33 @@ async function login() {
     const nombre = document.getElementById("nombre").value;
     const pwd = document.getElementById("pwd").value;
 
-    const response = await fetch("/login", {   // 👈 tu endpoint es /login
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ nombre, pwd })
-    });
+    try {
+        const response = await fetch("/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ nombre, pwd })
+        });
 
-    if (response.ok) {
+        if (response.ok) {
 
-        const token = await response.json();  // 👈 aquí recibes el string directamente
+            const token = await response.json();
 
-        localStorage.setItem("token", token);
+            localStorage.setItem("token", token);
 
-        window.location.href = "/static/index.html";
+            window.location.href = "/index.html"; 
+            // 👆 IMPORTANTE
+            // Como usas Files::new("/", "./static")
+            // NO necesitas /static/
 
-    } else {
-        alert("Credenciales incorrectas");
+        } else {
+            const mensaje = await response.text();
+            alert("Error: " + mensaje);
+        }
+
+    } catch (error) {
+        alert("Error de conexión con el servidor");
+        console.error(error);
     }
 }

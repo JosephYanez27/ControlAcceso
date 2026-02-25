@@ -4,12 +4,12 @@ use chrono::{Utc, Duration};
 use serde::Deserialize;
 use sqlx::FromRow;
 use bcrypt::verify;
-use crate::config::jwt::generar_token;
 
+use crate::config::jwt::generar_token;
 use crate::models::claims::Claims;
 
 /* ========================
-   MODELO USUARIO PARA LOGIN
+   MODELO USUARIO
 ======================== */
 #[derive(FromRow)]
 pub struct Usuario {
@@ -20,6 +20,9 @@ pub struct Usuario {
     pub estado: bool
 }
 
+/* ========================
+   REQUEST LOGIN
+======================== */
 #[derive(Deserialize)]
 pub struct LoginRequest {
     pub nombre: String,
@@ -35,39 +38,59 @@ async fn login(
     form: web::Json<LoginRequest>
 ) -> impl Responder {
 
-    let user = sqlx::query_as::<_, Usuario>(
+    // Buscar usuario
+    let result = sqlx::query_as::<_, Usuario>(
         "SELECT id, nombre, pwd, id_perfil, estado
          FROM usuario
          WHERE nombre = $1"
     )
     .bind(&form.nombre)
-    .fetch_one(pool.get_ref())
+    .fetch_optional(pool.get_ref())
     .await;
 
-    if let Ok(user) = user {
-        if !user.estado {
-        return HttpResponse::Unauthorized().body("Usuario inactivo");
-    }
-        if verify(&form.pwd, &user.pwd).unwrap_or(false) {
-
-            let expiration = Utc::now()
-                .checked_add_signed(Duration::hours(2))
-                .unwrap()
-                .timestamp() as usize;
-
-            let claims = Claims {
-                sub: user.nombre,
-                perfil_id: user.id_perfil,
-                exp: expiration,
-            };
-
-           let token = generar_token(claims);
-
-            return HttpResponse::Ok().json(token);
+    let user = match result {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return HttpResponse::Unauthorized()
+                .body("Usuario no encontrado");
         }
+        Err(e) => {
+            println!("Error BD: {:?}", e);
+            return HttpResponse::InternalServerError()
+                .body("Error de base de datos");
+        }
+    };
+
+    // Verificar estado
+    if !user.estado {
+        return HttpResponse::Unauthorized()
+            .body("Usuario inactivo");
     }
 
-    HttpResponse::Unauthorized().finish()
+    // Verificar contraseña
+    let password_valida = verify(&form.pwd, &user.pwd)
+        .unwrap_or(false);
+
+    if !password_valida {
+        return HttpResponse::Unauthorized()
+            .body("Contraseña incorrecta");
+    }
+
+    // Crear expiración
+    let expiration = Utc::now()
+        .checked_add_signed(Duration::hours(2))
+        .unwrap()
+        .timestamp() as usize;
+
+    let claims = Claims {
+        sub: user.nombre,
+        perfil_id: user.id_perfil,
+        exp: expiration,
+    };
+
+    let token = generar_token(claims);
+
+    HttpResponse::Ok().json(token)
 }
 
 /* ========================

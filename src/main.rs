@@ -15,6 +15,8 @@ use crate::middleware::jwt_middleware::JwtMiddleware;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 
+
+
     dotenv().ok();
 
     // =========================
@@ -38,20 +40,20 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
 
-            // =========================
-            // ARCHIVOS ESTÁTICOS (HTML, JS, CSS)
-            // =========================
-          .service(
-    Files::new("/static", "./static")
-)
-.route("/", web::get().to(|| async {
-    actix_files::NamedFile::open("./static/login.html")
-}))
-
-            // =========================
+              // =========================
             // LOGIN (SIN JWT)
             // =========================
             .configure(modules::auth::init)
+
+            // =========================
+            // ARCHIVOS ESTÁTICOS (HTML, JS, CSS)
+            // =========================
+            .service(
+                Files::new("/", "./static")
+                    .index_file("login.html") // 👈 abre login por defecto
+            )
+
+          
 
             // =========================
             // API PROTEGIDA CON JWT
@@ -66,3 +68,5 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
+
+

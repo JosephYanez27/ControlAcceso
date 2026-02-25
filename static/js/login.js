@@ -4,7 +4,7 @@ async function login() {
     const pwd = document.getElementById("pwd").value;
 
     try {
-        const response = await fetch("https://controlacceso-l9rs.onrender.com/login", {
+        const response = await fetch("/login", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
